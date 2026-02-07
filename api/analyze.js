@@ -87,8 +87,21 @@ Meta: ${JSON.stringify(meta ?? {})}
       followupQuestion,
       interventionQuestion,
     });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: String(e) });
+    } catch (e) {
+    console.error("Analyze endpoint error:", e);
+
+    // ✅ Fallback response so the app still works even if OpenAI fails
+    // Return 200 with a safe object in the same shape your frontend expects.
+    return res.status(200).json({
+      verdict: "OKAY",
+      needsJustification: false,
+      reason:
+        "AI is temporarily unavailable (rate limit/network). Using a fallback evaluation — please try again in a moment.",
+      xpDelta: 0,
+      followupQuestion: null,
+      interventionQuestion: null,
+      _fallback: true, // optional, helps debugging
+    });
   }
+
 }
