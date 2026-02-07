@@ -13,6 +13,7 @@ import Budget from "./pages/Budget.jsx";
 import AddPurchase from "./pages/AddPurchase.jsx";
 import WeeklySummary from "./pages/WeeklySummary.jsx";
 import SavingsGoal from "./pages/SavingsGoal.jsx";
+import Subscriptions from "./pages/Subscriptions.jsx";
 
 export default function App() {
   const [profile, setProfile] = useState(() => loadProfile());
@@ -89,6 +90,11 @@ export default function App() {
           path="/summary"
           element={<WeeklySummary profile={profile} />}
         />
+        <Route
+  path="/subscriptions"
+  element={<Subscriptions profile={profile} persist={persist} />}
+/>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

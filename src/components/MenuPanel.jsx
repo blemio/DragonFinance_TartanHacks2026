@@ -1,7 +1,7 @@
 'use client';
 
 import { Link } from "react-router-dom";
-import { Wallet, PlusCircle, Target, BarChart3 } from "lucide-react";
+import { Wallet, PlusCircle, Target, BarChart3, RepeatIcon } from "lucide-react";
 import { getCurrentBudget, getRemainingBudget } from "../lib/budget";
 
 export default function MenuPanel({ profile, onReset }) {
@@ -65,6 +65,16 @@ export default function MenuPanel({ profile, onReset }) {
         <div className="menu-card-text">
           <h3>Savings Goal</h3>
           <p>Set a target, log deposits, earn bonus XP</p>
+        </div>
+      </Link>
+
+      <Link to="/subscriptions" className="menu-card">
+        <div className="menu-card-icon blue" aria-hidden="true">
+          <RepeatIcon size={20} />
+        </div>
+        <div className="menu-card-text">
+          <h3>Subscriptions</h3>
+          <p>Track recurring costs and measure usage</p>
         </div>
       </Link>
 
