@@ -29,14 +29,22 @@ export default function AddPurchase({ profile, persist }) {
   const [merchant, setMerchant] = useState("");
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [necessary, setNecessary] = useState(null);
+
   const [result, setResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Justification modal
   const [justifyOpen, setJustifyOpen] = useState(false);
   const [justifyText, setJustifyText] = useState("");
   const [followupQuestion, setFollowupQuestion] = useState("");
   const [pendingEntry, setPendingEntry] = useState(null);
   const [pendingContext, setPendingContext] = useState(null);
 
+  // Large purchase intervention modal
+  const [interveneOpen, setInterveneOpen] = useState(false);
+  const [interveneQuestion, setInterveneQuestion] = useState("");
+
+  // Receipt capture
   const [receiptPreview, setReceiptPreview] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -50,110 +58,147 @@ export default function AddPurchase({ profile, persist }) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       setReceiptPreview(ev.target.result);
-      // FUTURE: Send this image to an AI vision model to auto-extract
-      // merchant, amount, and category from the receipt.
-      // e.g. parseReceiptWithAI(ev.target.result).then(({ merchant, amount, category }) => { ... })
+      // FUTURE: parse receipt with AI vision and autofill fields.
     };
     reader.readAsDataURL(file);
   };
 
   const finalizePurchase = ({ entry, verdict, reason, xpDelta }) => {
-  const num = entry.amount;
+    const num = entry.amount;
 
-  const spending = {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-    amount: num,
-    merchant: entry.merchant,
-    category: entry.category,
-    necessary: entry.necessary,
-    verdict,
-    date: todayKey(),
-    timestamp: new Date().toISOString(),
-  };
-
-  // Budget penalty logic stays the same
-  const newTodayTotal = todaySpent + num;
-  let budgetPenalty = 0;
-  if (budget !== null && todaySpent <= budget && newTodayTotal > budget) {
-    budgetPenalty = XP.OVER_BUDGET_PENALTY;
-  }
-
-  persist((p) => {
-    const newXp = applyXp(applyXp(p.xp, xpDelta), budgetPenalty);
-    return {
-      ...p,
-      xp: newXp,
-      spendings: [...p.spendings, spending],
+    const spending = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      amount: num,
+      merchant: entry.merchant,
+      category: entry.category,
+      necessary: entry.necessary,
+      verdict,
+      date: todayKey(),
+      timestamp: new Date().toISOString(),
     };
-  });
 
-  setResult({
-    xpDelta: xpDelta + budgetPenalty,
-    verdict,
-    explanation: reason,
-    suggestion: "",
-    budgetPenalty,
-  });
-
-  // Reset form
-  setAmount("");
-  setMerchant("");
-  setCategory(CATEGORIES[0]);
-  setNecessary(null);
-  setReceiptPreview(null);
-  if (fileInputRef.current) fileInputRef.current.value = "";
-
-  setTimeout(() => setResult(null), 6000);
-};
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (necessary === null) return;
-
-  const num = parseFloat(amount);
-  if (isNaN(num) || num <= 0) return;
-
-  const entry = {
-    amount: num,
-    merchant: merchant.trim() || "Unknown",
-    category,
-    necessary,
-  };
-
-  const context = {
-    dailyBudget: budget,
-    todaySpent,
-    streak: profile.streak?.current ?? 0,
-  };
-
-  try {
-    setSubmitting(true);
-
-    const first = await evaluatePurchaseAPI(entry, context, null);
-
-    if (first.needsJustification) {
-      setPendingEntry(entry);
-      setPendingContext(context);
-      setFollowupQuestion(first.followupQuestion || "Why was this purchase necessary?");
-      setJustifyText("");
-      setJustifyOpen(true);
-      return;
+    // Budget penalty logic stays the same
+    const newTodayTotal = todaySpent + num;
+    let budgetPenalty = 0;
+    if (budget !== null && todaySpent <= budget && newTodayTotal > budget) {
+      budgetPenalty = XP.OVER_BUDGET_PENALTY;
     }
 
-    finalizePurchase({
-      entry,
-      verdict: first.verdict,
-      reason: first.reason,
-      xpDelta: first.xpDelta,
+    persist((p) => {
+      const newXp = applyXp(applyXp(p.xp, xpDelta), budgetPenalty);
+      return {
+        ...p,
+        xp: newXp,
+        spendings: [...p.spendings, spending],
+      };
     });
-  } catch (err) {
-    console.error(err);
-    alert("AI evaluation failed. Check Vercel logs.");
-  } finally {
-    setSubmitting(false);
+
+    setResult({
+      xpDelta: xpDelta + budgetPenalty,
+      verdict,
+      explanation: reason,
+      suggestion: "",
+      budgetPenalty,
+    });
+
+    // Reset form
+    setAmount("");
+    setMerchant("");
+    setCategory(CATEGORIES[0]);
+    setNecessary(null);
+    setReceiptPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    setTimeout(() => setResult(null), 6000);
+  };
+
+  // Runs evaluation and routes to justification ONLY if necessary===true
+  const runEvaluation = async (entry, context) => {
+  const first = await evaluatePurchaseAPI(entry, context, null);
+
+  // Only ask for justification if user claimed it's necessary
+  const shouldAskJustification = entry.necessary === true && first.needsJustification === true;
+
+  if (shouldAskJustification) {
+    setPendingEntry(entry);
+    setPendingContext(context);
+    setFollowupQuestion(first.followupQuestion || "Why was this purchase necessary?");
+    setJustifyText("");
+    setJustifyOpen(true);
+    return;
   }
+
+  // ✅ HARD RULE: if user chose "unnecessary", ALWAYS apply penalty
+  if (entry.necessary === false) {
+    first.xpDelta = XP.UNNECESSARY_PURCHASE; // -15
+    first.verdict = "BAD";                  // so it doesn't show "Good decision"
+    if (typeof first.reason !== "string" || first.reason.trim().length === 0) {
+      first.reason = "You marked this purchase as not necessary.";
+    }
+  }
+
+  finalizePurchase({
+    entry,
+    verdict: first.verdict,
+    reason: first.reason,
+    xpDelta: first.xpDelta,
+  });
 };
 
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (necessary === null) return;
+
+    const num = parseFloat(amount);
+    if (isNaN(num) || num <= 0) return;
+
+    const entry = {
+      amount: num,
+      merchant: merchant.trim() || "Unknown",
+      category,
+      necessary,
+    };
+
+    const context = {
+      dailyBudget: budget,
+      todaySpent,
+      streak: profile.streak?.current ?? 0,
+    };
+
+    // Deterministic “noticeably too large” trigger:
+    // - If budget exists: amount >= 50% of budget OR this purchase pushes over budget
+    // - If no budget: amount >= $100
+    const hasBudget = typeof budget === "number" && budget > 0;
+    const largeByBudget = hasBudget && (num >= 0.5 * budget || (todaySpent + num) > budget);
+    const largeByAbsolute = !hasBudget && num >= 100;
+    const shouldIntervene = largeByBudget || largeByAbsolute;
+
+    try {
+      setSubmitting(true);
+
+      // If it’s a large purchase, pause and ask FIRST (no XP applied yet).
+      if (shouldIntervene) {
+        setPendingEntry(entry);
+        setPendingContext(context);
+
+        const q = hasBudget
+          ? `This is a big purchase ($${num.toFixed(2)} vs daily budget $${budget.toFixed(2)}). Was this a good decision?`
+          : `This is a big purchase ($${num.toFixed(2)}). Was this a good decision?`;
+
+        setInterveneQuestion(q);
+        setInterveneOpen(true);
+        return;
+      }
+
+      await runEvaluation(entry, context);
+    } catch (err) {
+      console.error(err);
+      alert("AI evaluation failed. Check Vercel logs.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="page" style={{ maxWidth: 520 }}>
@@ -312,6 +357,7 @@ const handleSubmit = async (e) => {
             >
               Yes, necessary
             </button>
+
             <button
               type="button"
               className={`btn ${necessary === false ? "btn-primary" : ""}`}
@@ -327,7 +373,6 @@ const handleSubmit = async (e) => {
           type="submit"
           className="btn btn-primary"
           disabled={submitting || necessary === null || !amount || parseFloat(amount) <= 0}
-
         >
           Log Purchase
         </button>
@@ -346,7 +391,7 @@ const handleSubmit = async (e) => {
               {todayItems.length} {todayItems.length === 1 ? "entry" : "entries"} &middot; Resets daily
             </p>
             <ol className="spending-list">
-              {todayItems.map((s, idx) => {
+              {todayItems.map((s) => {
                 const v = s.verdict || (s.necessary ? "GOOD" : "BAD");
                 const vc = VERDICT_CONFIG[v] || VERDICT_CONFIG.OKAY;
                 const Icon = vc.icon;
@@ -372,76 +417,141 @@ const handleSubmit = async (e) => {
           </div>
         );
       })()}
-    {justifyOpen && (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.6)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 16,
-      zIndex: 9999,
-    }}
-  >
-    <div className="card" style={{ maxWidth: 520, width: "100%" }}>
-      <h2 style={{ marginTop: 0 }}>Quick question</h2>
-      <p>{followupQuestion}</p>
 
-      <textarea
-        value={justifyText}
-        onChange={(e) => setJustifyText(e.target.value)}
-        rows={4}
-        style={{ width: "100%", marginBottom: 12 }}
-        placeholder="Type your justification..."
-      />
-
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button
-          className="btn"
-          onClick={() => {
-            setJustifyOpen(false);
-            setPendingEntry(null);
-            setPendingContext(null);
-          }}
-          disabled={submitting}
-        >
-          Cancel
-        </button>
-
-        <button
-          className="btn btn-primary"
-          disabled={submitting || justifyText.trim().length === 0}
-          onClick={async () => {
-            try {
-              setSubmitting(true);
-              const second = await evaluatePurchaseAPI(pendingEntry, pendingContext, justifyText.trim());
-
-              finalizePurchase({
-                entry: pendingEntry,
-                verdict: second.verdict,
-                reason: second.reason,
-                xpDelta: second.xpDelta,
-              });
-
-              setJustifyOpen(false);
-              setPendingEntry(null);
-              setPendingContext(null);
-            } catch (err) {
-              console.error(err);
-              alert("AI justification failed. Check Vercel logs.");
-            } finally {
-              setSubmitting(false);
-            }
+      {/* Large purchase intervention modal */}
+      {interveneOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+            zIndex: 9999,
           }}
         >
-          Submit
-        </button>
-      </div>
+          <div className="card" style={{ maxWidth: 520, width: "100%" }}>
+            <h2 style={{ marginTop: 0 }}>Hold up 👀</h2>
+            <p>{interveneQuestion}</p>
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button
+                className="btn"
+                onClick={() => {
+                  setInterveneOpen(false);
+                  setPendingEntry(null);
+                  setPendingContext(null);
+                }}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="btn"
+                onClick={async () => {
+                  try {
+                    setSubmitting(true);
+                    setInterveneOpen(false);
+
+                    // continue normally (still uses necessary flag + AI evaluation)
+                    await runEvaluation(pendingEntry, pendingContext);
+
+                    setPendingEntry(null);
+                    setPendingContext(null);
+                  } catch (err) {
+                    console.error(err);
+                    alert("AI evaluation failed. Check Vercel logs.");
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
+                disabled={submitting}
+              >
+                Log anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Justification modal */}
+      {justifyOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+            zIndex: 9999,
+          }}
+        >
+          <div className="card" style={{ maxWidth: 520, width: "100%" }}>
+            <h2 style={{ marginTop: 0 }}>Quick question</h2>
+            <p>{followupQuestion}</p>
+
+            <textarea
+              value={justifyText}
+              onChange={(e) => setJustifyText(e.target.value)}
+              rows={4}
+              style={{ width: "100%", marginBottom: 12 }}
+              placeholder="Type your justification..."
+            />
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                className="btn"
+                onClick={() => {
+                  setJustifyOpen(false);
+                  setPendingEntry(null);
+                  setPendingContext(null);
+                }}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+
+              <button
+                className="btn btn-primary"
+                disabled={submitting || justifyText.trim().length === 0}
+                onClick={async () => {
+                  try {
+                    setSubmitting(true);
+                    const second = await evaluatePurchaseAPI(
+                      pendingEntry,
+                      pendingContext,
+                      justifyText.trim()
+                    );
+
+                    finalizePurchase({
+                      entry: pendingEntry,
+                      verdict: second.verdict,
+                      reason: second.reason,
+                      xpDelta: second.xpDelta,
+                    });
+
+                    setJustifyOpen(false);
+                    setPendingEntry(null);
+                    setPendingContext(null);
+                  } catch (err) {
+                    console.error(err);
+                    alert("AI justification failed. Check Vercel logs.");
+                  } finally {
+                    setSubmitting(false);
+                  }
+                }}
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  </div>
-)}
-</div>
   );
 }

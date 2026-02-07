@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const { purchase, context, justification } = req.body || {};
+    const { purchase, context, justification, meta } = req.body || {};
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -30,11 +30,18 @@ verdict ("GOOD"|"OKAY"|"BAD"),
 needsJustification (boolean),
 reason (string),
 xpDelta (number),
-followupQuestion (string|null).
+followupQuestion (string|null),
+interventionQuestion (string|null).
+
+RULES:
+- If purchase.necessary is false, needsJustification MUST be false and followupQuestion MUST be null.
+- Only set needsJustification true when purchase.necessary is true AND verdict is "BAD" or "OKAY".
+- interventionQuestion is OPTIONAL. If meta.interventionCandidate is true, you may provide a short question that asks the user to reflect.
 
 Purchase: ${JSON.stringify(purchase)}
 Context: ${JSON.stringify(context)}
 Justification: ${justification ?? ""}
+Meta: ${JSON.stringify(meta ?? {})}
 `;
 
     const out = await client.chat.completions.create({
@@ -44,8 +51,42 @@ Justification: ${justification ?? ""}
     });
 
     const text = out.choices?.[0]?.message?.content || "{}";
+    let parsed = {};
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = {};
+    }
 
-    return res.status(200).json(JSON.parse(text));
+    // --- Safe defaults so frontend never explodes ---
+    const verdict =
+      parsed.verdict === "GOOD" || parsed.verdict === "OKAY" || parsed.verdict === "BAD"
+        ? parsed.verdict
+        : "OKAY";
+
+    let needsJustification = Boolean(parsed.needsJustification);
+    let followupQuestion = parsed.followupQuestion ?? null;
+
+    // Hard rule: if user said it wasn't necessary, do NOT ask justification
+    if (purchase?.necessary === false) {
+      needsJustification = false;
+      followupQuestion = null;
+    }
+
+    const reason = typeof parsed.reason === "string" ? parsed.reason : "No reason provided.";
+    const xpDelta = typeof parsed.xpDelta === "number" ? parsed.xpDelta : 0;
+
+    const interventionQuestion =
+      typeof parsed.interventionQuestion === "string" ? parsed.interventionQuestion : null;
+
+    return res.status(200).json({
+      verdict,
+      needsJustification,
+      reason,
+      xpDelta,
+      followupQuestion,
+      interventionQuestion,
+    });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: String(e) });

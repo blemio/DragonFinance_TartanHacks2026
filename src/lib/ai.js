@@ -170,7 +170,7 @@ export function xpForVerdict(verdict) {
   }
 }
 
-export async function evaluatePurchaseAPI(entry, context, justification = null) {
+export async function evaluatePurchaseAPI(entry, context, justification = null, meta = null) {
   const res = await fetch("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -178,6 +178,7 @@ export async function evaluatePurchaseAPI(entry, context, justification = null) 
       purchase: entry,
       context,
       justification,
+      meta, // NEW: optional
     }),
   });
 
@@ -185,4 +186,5 @@ export async function evaluatePurchaseAPI(entry, context, justification = null) 
   if (!res.ok) throw new Error(data?.error || "AI analyze failed");
   return data;
 }
+
 
