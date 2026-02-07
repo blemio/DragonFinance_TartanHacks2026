@@ -37,6 +37,7 @@ If your most recent purchase is BAD, the baby dragon shows its sad sprite on Hom
 Log a GOOD purchase afterward → return to Home → dragon returns to happy (This feature can only be seen with a dragon that has evolved to "baby")
 
 5. There is an option to set a savings goal deposit money towards that goal. Once you hit the goal you will be rewarded with an exp bonus.
+6. There is an option to record and track subscriptions, sorted by most used or most expensive subscriptions.
 ---------------------------------------------------------------------------------------
 Key Features:
 
