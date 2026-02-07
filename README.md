@@ -1,6 +1,8 @@
 Dragon Finance — TartanHacks 2026
 
-Dragon Finance is a web app pilot project that gamifies personal finance where users adopt a dragon and receive AI-powered feedback on spending habits, log purchases, earn XP, and influence your dragon’s mood based on financial decisions. Built with React (Vite), Vercel Serverless Functions, and OpenAI.
+Dragon Finance is a web app pilot project that gamifies personal finance where users adopt a dragon and receive AI-powered feedback on spending habits, log purchases, earn XP, and influence your dragon’s mood based on financial decisions. This tool can be tremendously beneficial for the youth for learning good financial decisions due to gameification.
+
+Dragon Finance was built with React (Vite), Vercel Serverless Functions, and OpenAI.
 
 ---
 
