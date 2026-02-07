@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, CheckCircle, AlertTriangle, XCircle, Camera, ImageIcon, X } from "lucide-react";
 import { todayKey, getTodaySpending, getCurrentBudget } from "../lib/budget";
 import { applyXp, XP } from "../lib/xp";
-import { evaluatePurchase, xpForVerdict } from "../lib/ai";
+import { evaluatePurchaseAPI } from "../lib/ai";
 
 const CATEGORIES = [
   "Food & Groceries",
@@ -30,6 +30,13 @@ export default function AddPurchase({ profile, persist }) {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [necessary, setNecessary] = useState(null);
   const [result, setResult] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [justifyOpen, setJustifyOpen] = useState(false);
+  const [justifyText, setJustifyText] = useState("");
+  const [followupQuestion, setFollowupQuestion] = useState("");
+  const [pendingEntry, setPendingEntry] = useState(null);
+  const [pendingContext, setPendingContext] = useState(null);
+
   const [receiptPreview, setReceiptPreview] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -50,76 +57,103 @@ export default function AddPurchase({ profile, persist }) {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (necessary === null) return;
+  const finalizePurchase = ({ entry, verdict, reason, xpDelta }) => {
+  const num = entry.amount;
 
-    const num = parseFloat(amount);
-    if (isNaN(num) || num <= 0) return;
+  const spending = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    amount: num,
+    merchant: entry.merchant,
+    category: entry.category,
+    necessary: entry.necessary,
+    verdict,
+    date: todayKey(),
+    timestamp: new Date().toISOString(),
+  };
 
-    const entry = {
-      amount: num,
-      merchant: merchant.trim() || "Unknown",
-      category,
-      necessary,
+  // Budget penalty logic stays the same
+  const newTodayTotal = todaySpent + num;
+  let budgetPenalty = 0;
+  if (budget !== null && todaySpent <= budget && newTodayTotal > budget) {
+    budgetPenalty = XP.OVER_BUDGET_PENALTY;
+  }
+
+  persist((p) => {
+    const newXp = applyXp(applyXp(p.xp, xpDelta), budgetPenalty);
+    return {
+      ...p,
+      xp: newXp,
+      spendings: [...p.spendings, spending],
     };
+  });
 
-    const context = {
-      dailyBudget: budget,
-      todaySpent,
-      streak: profile.streak?.current ?? 0,
-    };
+  setResult({
+    xpDelta: xpDelta + budgetPenalty,
+    verdict,
+    explanation: reason,
+    suggestion: "",
+    budgetPenalty,
+  });
 
-    // Evaluate purchase
-    const evaluation = evaluatePurchase(entry, context);
-    const xpDelta = xpForVerdict(evaluation.verdict);
+  // Reset form
+  setAmount("");
+  setMerchant("");
+  setCategory(CATEGORIES[0]);
+  setNecessary(null);
+  setReceiptPreview(null);
+  if (fileInputRef.current) fileInputRef.current.value = "";
 
-    const spending = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      amount: num,
-      merchant: entry.merchant,
-      category,
-      necessary,
-      verdict: evaluation.verdict,
-      date: todayKey(),
-      timestamp: new Date().toISOString(),
-    };
+  setTimeout(() => setResult(null), 6000);
+};
 
-    // Check if this purchase pushes the user over budget
-    const newTodayTotal = todaySpent + num;
-    let budgetPenalty = 0;
-    if (budget !== null && todaySpent <= budget && newTodayTotal > budget) {
-      budgetPenalty = XP.OVER_BUDGET_PENALTY;
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (necessary === null) return;
+
+  const num = parseFloat(amount);
+  if (isNaN(num) || num <= 0) return;
+
+  const entry = {
+    amount: num,
+    merchant: merchant.trim() || "Unknown",
+    category,
+    necessary,
+  };
+
+  const context = {
+    dailyBudget: budget,
+    todaySpent,
+    streak: profile.streak?.current ?? 0,
+  };
+
+  try {
+    setSubmitting(true);
+
+    const first = await evaluatePurchaseAPI(entry, context, null);
+
+    if (first.needsJustification) {
+      setPendingEntry(entry);
+      setPendingContext(context);
+      setFollowupQuestion(first.followupQuestion || "Why was this purchase necessary?");
+      setJustifyText("");
+      setJustifyOpen(true);
+      return;
     }
 
-    persist((p) => {
-      const newXp = applyXp(applyXp(p.xp, xpDelta), budgetPenalty);
-      return {
-        ...p,
-        xp: newXp,
-        spendings: [...p.spendings, spending],
-      };
+    finalizePurchase({
+      entry,
+      verdict: first.verdict,
+      reason: first.reason,
+      xpDelta: first.xpDelta,
     });
+  } catch (err) {
+    console.error(err);
+    alert("AI evaluation failed. Check Vercel logs.");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
-    setResult({
-      xpDelta: xpDelta + budgetPenalty,
-      verdict: evaluation.verdict,
-      explanation: evaluation.explanation,
-      suggestion: evaluation.suggestion,
-      budgetPenalty,
-    });
-
-    // Reset form
-    setAmount("");
-    setMerchant("");
-    setCategory(CATEGORIES[0]);
-    setNecessary(null);
-    setReceiptPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-
-    // Auto-clear result
-    setTimeout(() => setResult(null), 6000);
-  };
 
   return (
     <div className="page" style={{ maxWidth: 520 }}>
@@ -292,7 +326,8 @@ export default function AddPurchase({ profile, persist }) {
         <button
           type="submit"
           className="btn btn-primary"
-          disabled={necessary === null || !amount || parseFloat(amount) <= 0}
+          disabled={submitting || necessary === null || !amount || parseFloat(amount) <= 0}
+
         >
           Log Purchase
         </button>
@@ -337,6 +372,76 @@ export default function AddPurchase({ profile, persist }) {
           </div>
         );
       })()}
+    {justifyOpen && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+      zIndex: 9999,
+    }}
+  >
+    <div className="card" style={{ maxWidth: 520, width: "100%" }}>
+      <h2 style={{ marginTop: 0 }}>Quick question</h2>
+      <p>{followupQuestion}</p>
+
+      <textarea
+        value={justifyText}
+        onChange={(e) => setJustifyText(e.target.value)}
+        rows={4}
+        style={{ width: "100%", marginBottom: 12 }}
+        placeholder="Type your justification..."
+      />
+
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <button
+          className="btn"
+          onClick={() => {
+            setJustifyOpen(false);
+            setPendingEntry(null);
+            setPendingContext(null);
+          }}
+          disabled={submitting}
+        >
+          Cancel
+        </button>
+
+        <button
+          className="btn btn-primary"
+          disabled={submitting || justifyText.trim().length === 0}
+          onClick={async () => {
+            try {
+              setSubmitting(true);
+              const second = await evaluatePurchaseAPI(pendingEntry, pendingContext, justifyText.trim());
+
+              finalizePurchase({
+                entry: pendingEntry,
+                verdict: second.verdict,
+                reason: second.reason,
+                xpDelta: second.xpDelta,
+              });
+
+              setJustifyOpen(false);
+              setPendingEntry(null);
+              setPendingContext(null);
+            } catch (err) {
+              console.error(err);
+              alert("AI justification failed. Check Vercel logs.");
+            } finally {
+              setSubmitting(false);
+            }
+          }}
+        >
+          Submit
+        </button>
+      </div>
     </div>
+  </div>
+)}
+</div>
   );
 }

@@ -169,3 +169,20 @@ export function xpForVerdict(verdict) {
     default:     return 0;
   }
 }
+
+export async function evaluatePurchaseAPI(entry, context, justification = null) {
+  const res = await fetch("/api/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      purchase: entry,
+      context,
+      justification,
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || "AI analyze failed");
+  return data;
+}
+
