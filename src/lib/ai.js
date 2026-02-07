@@ -171,20 +171,49 @@ export function xpForVerdict(verdict) {
 }
 
 export async function evaluatePurchaseAPI(entry, context, justification = null, meta = null) {
-  const res = await fetch("/api/analyze", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      purchase: entry,
-      context,
-      justification,
-      meta, // NEW: optional
-    }),
-  });
+  try {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        purchase: entry,
+        context,
+        justification,
+        meta,
+      }),
+    });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || "AI analyze failed");
-  return data;
+    // Handle cases where Vercel returns HTML (e.g., 504) or empty body
+    const raw = await res.text();
+    let data = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      data = {};
+    }
+
+    // If the API returns a non-2xx, we fall back instead of throwing
+    if (!res.ok) throw new Error(data?.error || `AI analyze failed (${res.status})`);
+
+    return data;
+  } catch (err) {
+    console.error("AI analyze failed, using fallback:", err);
+
+    // ✅ Fallback to heuristic so the app NEVER breaks for teammates/judges
+    const heuristic = evaluatePurchase(entry, context);
+    const verdict = heuristic.verdict;
+
+    return {
+      verdict,
+      needsJustification: false,          // key: skip justification flow when AI is flaky
+      reason: `${heuristic.explanation} ${heuristic.suggestion}`.trim(),
+      xpDelta: xpForVerdict(verdict),
+      followupQuestion: null,
+      interventionQuestion: null,
+      _fallback: true,
+    };
+  }
 }
+
 
 
