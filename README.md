@@ -27,7 +27,7 @@ Log a purchase (Core action)
 3. Set a daily budget, this will lock you from changing it again during the day so please pick a reasonable value
    
 4. Go to the Spending Log / Add Spending page and enter a transaction
-
+--
 After submitting, the app evaluates your spending:
 Good spending → you earn XP, dragon stays happy
 Bad spending → feedback warns you, and when you return home the baby dragon becomes sad
