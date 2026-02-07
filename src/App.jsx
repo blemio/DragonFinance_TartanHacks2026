@@ -1,7 +1,9 @@
-import { NavLink, Routes, Route } from "react-router-dom";
+import { NavLink, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home.jsx";
 import AddPurchase from "./pages/AddPurchase.jsx";
 import Budget from "./pages/Budget.jsx";
+import { ProfileProvider } from "./state/ProfileContext.jsx";
+import BudgetBar from "./components/BudgetBar.jsx";
 
 function Nav() {
   const linkStyle = ({ isActive }) => ({
@@ -23,13 +25,21 @@ function Nav() {
 
 export default function App() {
   return (
-    <div>
-      <Nav />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/add" element={<AddPurchase />} />
-        <Route path="/budget" element={<Budget />} />
-      </Routes>
-    </div>
+    <ProfileProvider>
+      <div>
+        {/* Dev nav (you can delete later once the menu screen is wired in) */}
+        <Nav />
+
+        {/* Shows only after the user sets a daily budget */}
+        <BudgetBar />
+
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/add" element={<AddPurchase />} />
+          <Route path="/budget" element={<Budget />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </ProfileProvider>
   );
 }
