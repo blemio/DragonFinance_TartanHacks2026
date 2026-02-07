@@ -204,14 +204,17 @@
   gap: 14px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
   .home-layout {
     flex-direction: column;
+    align-items: stretch;
   }
+
   .home-left {
     max-width: 100%;
   }
 }
+
 
 /* ── Egg picker ───────────────────────────────── */
 .egg-picker-wrapper {
@@ -249,10 +252,18 @@
 .egg-card[data-egg="blue"]:hover  { border-color: #3b7dd8; }
 .egg-card[data-egg="green"]:hover { border-color: #2e9e5a; }
 
+.egg-placeholder img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+
 .egg-placeholder {
-  width: 100px;
-  height: 130px;
-  margin: 0 auto 16px;
+  width: 180px;
+  height: 260px;
+  margin: 0 auto 10px;
   border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
   display: flex;
   align-items: center;
@@ -260,7 +271,10 @@
   font-size: 2rem;
   font-weight: 800;
   color: rgba(255,255,255,0.35);
+
+  overflow: hidden; /* <-- ADD THIS */
 }
+
 .egg-placeholder[data-egg="red"]   { background: linear-gradient(135deg, #e85d5d, #b83a3a); }
 .egg-placeholder[data-egg="blue"]  { background: linear-gradient(135deg, #5d8de8, #3a5fb8); }
 .egg-placeholder[data-egg="green"] { background: linear-gradient(135deg, #3db86e, #27784a); }
@@ -282,10 +296,12 @@
   flex-direction: column;
   gap: 16px;
 }
+
+
 .dragon-display {
   width: 100%;
   aspect-ratio: 1;
-  max-height: 320px;
+  max-height: 328px;
   border-radius: var(--radius);
   border: 2px dashed var(--border);
   display: flex;
@@ -299,13 +315,28 @@
   overflow: hidden;
   background: var(--bg-card);
 }
+
+
+/* THIS is the big fix: make the <img> fit the box */
+.dragon-display img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;   /* fills the box */
+  display: block;
+}
+
+
 .dragon-display::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: var(--radius);
   opacity: 0.06;
+  z-index: 0;
+  pointer-events: none;
 }
+
+
 .dragon-display[data-egg="red"]::before   { background: #e85d5d; }
 .dragon-display[data-egg="blue"]::before  { background: #3b7dd8; }
 .dragon-display[data-egg="green"]::before { background: #2e9e5a; }

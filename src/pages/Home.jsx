@@ -34,6 +34,8 @@ export default function Home({ profile, onAddXp, onReset }) {
             onReset={onReset}
           />
         </div>
+
+        
       </div>
     </div>
   );
