@@ -11,17 +11,22 @@ import wizardHappy from "../assets/dragons/wizard_happy.png";
 import wizardSad from "../assets/dragons/wizard_sad.png";
 
 // adjust later (you mentioned 300)
-export const HATCH_XP = 300;
+// baby starts at 100xp (matches STAGES in dragon.js)
+export const HATCH_XP = 100;
 
 const SPRITES = {
   archer: { egg: archerEgg, happy: archerHappy, sad: archerSad },
   knight: { egg: knightEgg, happy: knightHappy, sad: knightSad },
+
+  // "mage" is the player-facing name; we keep "wizard" for backwards compat.
+  mage:   { egg: wizardEgg, happy: wizardHappy, sad: wizardSad },
   wizard: { egg: wizardEgg, happy: wizardHappy, sad: wizardSad },
 };
 
 export function getDragonSprite(type, xp, mood = "happy") {
   const t = SPRITES[type];
   if (!t) return null;
-  if (xp < HATCH_XP) return t.egg;
-  return t[mood] || t.happy;
+  if (xp < HATCH_XP) return t.egg;   // egg sprite (never sad)
+  return t[mood] || t.happy;        // baby sprite (happy/sad)
 }
+

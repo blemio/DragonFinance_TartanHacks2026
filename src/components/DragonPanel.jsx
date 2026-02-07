@@ -16,12 +16,20 @@ export default function DragonPanel({ profile }) {
   wizard: "wizard",
 };
 
-  const type = EGG_ID_TO_TYPE[eggChoice] ?? eggChoice;
-  const img = getDragonSprite(type, xp, "happy");
-
-
+    const type = EGG_ID_TO_TYPE[eggChoice] ?? eggChoice;
 
   const stage = getStage(xp);
+
+  // mood rule:
+  // - only baby dragons can be sad (no sad egg pngs)
+  // - sad if the most recent spending verdict is BAD
+  const lastVerdict =
+    profile?.spendings?.[profile.spendings.length - 1]?.verdict;
+
+  const mood = stage.name === "baby" && lastVerdict === "BAD" ? "sad" : "happy";
+
+  const img = getDragonSprite(type, xp, mood);
+
   return (
     <div className="dragon-panel card">
       <div className="dragon-stage-label">{stage.label}</div>

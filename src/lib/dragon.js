@@ -1,9 +1,10 @@
 /* ── Eggs ──────────────────────────────────────── */
 export const EGGS = [
-  { id: "red",   label: "Fire Egg",   desc: "A smouldering ember of ambition" },
-  { id: "blue",  label: "Ice Egg",    desc: "Cool-headed and calculating" },
-  { id: "green", label: "Forest Egg", desc: "Steady growth, deep roots" },
+  { id: "red",   label: "Archer Egg", desc: "Quick reflexes, sharper aim." },
+  { id: "blue",  label: "Knight Egg", desc: "Steady defense, disciplined spending." },
+  { id: "green", label: "Mage Egg",   desc: "Big brain budgeting and long-term planning." },
 ];
+
 
 /* ── Stages (3 total) ─────────────────────────── */
 export const STAGES = [

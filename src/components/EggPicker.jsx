@@ -3,11 +3,13 @@ import { getDragonSprite } from "../lib/dragonSprites";
 const EGG_ID_TO_TYPE = {
   red: "archer",
   blue: "knight",
-  green: "wizard",
+  green: "mage",
   archer: "archer",
   knight: "knight",
-  wizard: "wizard",
+  mage: "mage",
+  wizard: "mage", // backwards compat
 };
+
 
 
 'use client';

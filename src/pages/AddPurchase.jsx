@@ -113,7 +113,10 @@ export default function AddPurchase({ profile, persist }) {
   };
 
   // Runs evaluation and routes to justification ONLY if necessary===true
-  const runEvaluation = async (entry, context) => {
+  // Runs evaluation and routes to justification ONLY if necessary===true
+// IMPORTANT: AI does NOT decide xpDelta here. Baseline XP is deterministic.
+// AI is ONLY allowed to decide xpDelta in the justification (summoned) path.
+const runEvaluation = async (entry, context) => {
   const first = await evaluatePurchaseAPI(entry, context, null);
 
   // Only ask for justification if user claimed it's necessary
@@ -128,22 +131,54 @@ export default function AddPurchase({ profile, persist }) {
     return;
   }
 
-  // ✅ HARD RULE: if user chose "unnecessary", ALWAYS apply penalty
+  // -------- Deterministic baseline XP (AI cannot change it here) --------
+  let xpDelta = 0;
+  let verdict = first.verdict;
+  let reason = first.reason;
+
+  // Always punish unnecessary
   if (entry.necessary === false) {
-    first.xpDelta = XP.UNNECESSARY_PURCHASE; // -15
-    first.verdict = "BAD";                  // so it doesn't show "Good decision"
-    if (typeof first.reason !== "string" || first.reason.trim().length === 0) {
-      first.reason = "You marked this purchase as not necessary.";
+    xpDelta = XP.UNNECESSARY_PURCHASE; // -15
+    verdict = "BAD";
+    if (typeof reason !== "string" || reason.trim().length === 0) {
+      reason = "You marked this purchase as not necessary.";
+    }
+  } else {
+    // Reward consistent +15 for good/necessary/reasonable purchases
+    const num = entry.amount;
+    const b = context?.dailyBudget;
+    const hasBudget = typeof b === "number" && b > 0;
+
+    // "reasonable" (tweakable): <= 40% of daily budget AND does not push over budget
+    // fallback if no budget: <= $80
+    const reasonable =
+      (hasBudget && num <= 0.4 * b && (context.todaySpent + num) <= b) ||
+      (!hasBudget && num <= 80);
+
+    if (reasonable) {
+      xpDelta = 15;
+      verdict = "GOOD";
+      if (typeof reason !== "string" || reason.trim().length === 0) {
+        reason = "Necessary and within a reasonable range for today.";
+      }
+    } else {
+      // Not reasonable: no reward by default (still can show AI's verdict/reason)
+      xpDelta = 0;
+      if (verdict !== "BAD") verdict = "OKAY";
+      if (typeof reason !== "string" || reason.trim().length === 0) {
+        reason = "This seems large for today. Consider if it was truly needed.";
+      }
     }
   }
 
   finalizePurchase({
     entry,
-    verdict: first.verdict,
-    reason: first.reason,
-    xpDelta: first.xpDelta,
+    verdict,
+    reason,
+    xpDelta,
   });
 };
+
 
 
   const handleSubmit = async (e) => {
@@ -527,6 +562,16 @@ export default function AddPurchase({ profile, persist }) {
                       pendingContext,
                       justifyText.trim()
                     );
+                    // In the summoned/justification path, AI is allowed to decide xpDelta,
+// EXCEPT: if the user marked it unnecessary, we still force -15.
+if (pendingEntry?.necessary === false) {
+  second.xpDelta = XP.UNNECESSARY_PURCHASE; // -15
+  second.verdict = "BAD";
+  if (typeof second.reason !== "string" || second.reason.trim().length === 0) {
+    second.reason = "You marked this purchase as not necessary.";
+  }
+}
+
 
                     finalizePurchase({
                       entry: pendingEntry,
