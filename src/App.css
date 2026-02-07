@@ -791,3 +791,166 @@
   from { opacity: 0; transform: translateX(-50%) translateY(12px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+/* ── Subscriptions page ───────────────────────── */
+.sub-summary-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.sub-summary-tile {
+  flex: 1;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.sub-summary-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.sub-summary-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.sub-form-row {
+  display: flex;
+  gap: 12px;
+}
+@media (max-width: 500px) {
+  .sub-form-row {
+    flex-direction: column;
+  }
+}
+
+/* ── Sort bar ─────────────────────────────────── */
+.sub-sort-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: var(--text-muted);
+}
+.sub-sort-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.sub-sort-btn {
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.sub-sort-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.sub-sort-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+/* ── Subscription list & cards ────────────────── */
+.sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sub-card {
+  padding: 18px;
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.sub-card:hover {
+  border-color: rgba(232, 120, 58, 0.3);
+  box-shadow: var(--shadow-md);
+}
+.sub-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sub-card-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.sub-card-cost {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+.sub-card-amount {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.sub-card-cycle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.sub-card-normalized {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.sub-card-usage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+.sub-card-last-used strong {
+  color: var(--text);
+}
+.sub-card-datetime {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+.sub-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.sub-log-btn {
+  flex: 1;
+  font-size: 0.88rem;
+  padding: 10px 16px;
+}
+.sub-delete-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+

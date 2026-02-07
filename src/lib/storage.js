@@ -15,6 +15,7 @@ function defaultProfile() {
       lastActiveDate: null,  // "YYYY-MM-DD"
     },
     savingsGoal: null,       // null | { target: number, saved: number, deposits: [{ amount, date, timestamp }], completed: bool, xpClaimed: bool }
+    subscriptions: [],       // [{ id, name, amount, billingCycle: 'weekly'|'monthly'|'yearly', lastUsed: ISO|null, createdAt: ISO }]
     createdAt: new Date().toISOString(),
   };
 }
